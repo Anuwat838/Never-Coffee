@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TeamWork — ตารางงานทีม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --red:#C8102E; --red-dark:#9E0B23; --red-soft:#FDECEF;
+  --ink:#20242A; --g700:#4B525B; --g500:#7A828C; --g300:#D8DCE1; --g150:#EEF0F3; --g80:#F7F8FA;
+  --white:#FFFFFF; --ok:#1B8A4C; --ok-soft:#E7F5EC; --warn:#B77800; --warn-soft:#FFF4DC;
+  --shadow:0 2px 10px rgba(32,36,42,.08); --shadow-lg:0 10px 34px rgba(32,36,42,.16);
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Sarabun',sans-serif;background:var(--g80);color:var(--ink);font-size:15px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:inherit;color:inherit}
+input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink);border:1.5px solid var(--g300);border-radius:10px;padding:10px 12px;background:var(--white);width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
+textarea{resize:vertical;min-height:84px}
+label{display:block;font-weight:600;font-size:13px;color:var(--g700);margin:14px 0 6px}
+a{color:var(--red)}
+.mono{font-family:'IBM Plex Mono',monospace}
+.hide{display:none!important}
+
+/* ---------- layout ---------- */
+#app{min-height:100%;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:50;background:var(--white);border-bottom:1px solid var(--g150);box-shadow:0 1px 0 rgba(0,0,0,.02)}
+.topbar-in{max-width:1080px;margin:0 auto;padding:0 16px;display:flex;align-items:center;gap:10px;height:56px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:.2px}
+.brand .logo{width:30px;height:30px;border-radius:8px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px}
+.topbar .me{margin-left:auto;display:flex;align-items:center;gap:8px}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none}
+.btn-ghost{color:var(--g500);font-size:13px;font-weight:600;padding:6px 10px;border-radius:8px}
+.btn-ghost:hover{background:var(--g150);color:var(--ink)}
+
+.tabs{max-width:1080px;margin:0 auto;padding:0 8px;display:flex;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{position:relative;padding:11px 14px;font-weight:600;font-size:14px;color:var(--g500);white-space:nowrap;border-bottom:3px solid transparent}
+.tab.on{color:var(--red);border-bottom-color:var(--red)}
+.tab .badge{position:absolute;top:6px;right:2px;width:8px;height:8px;border-radius:50%;background:var(--red)}
+
+.main{flex:1;max-width:1080px;margin:0 auto;width:100%;padding:18px 16px 90px}
+@media(min-width:720px){.main{padding-bottom:40px}}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:700;border-radius:10px;padding:10px 18px;transition:.15s}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-dark)}
+.btn-line{border:1.5px solid var(--g300);background:var(--white);color:var(--ink)}
+.btn-line:hover{border-color:var(--g500)}
+.btn-sm{padding:7px 12px;font-size:13px;border-radius:8px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.fab{position:fixed;right:18px;bottom:22px;z-index:40;width:56px;height:56px;border-radius:50%;background:var(--red);color:#fff;font-size:28px;box-shadow:var(--shadow-lg);display:grid;place-items:center}
+@media(min-width:720px){.fab{right:calc(50% - 540px + 24px)}}
+
+/* ---------- cards & chips ---------- */
+.card{background:var(--white);border:1px solid var(--g150);border-radius:var(--r);box-shadow:var(--shadow)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px}
+.chip.todo{background:var(--g150);color:var(--g700)}
+.chip.doing{background:var(--warn-soft);color:var(--warn)}
+.chip.done{background:var(--ok-soft);color:var(--ok)}
+.chip.urgent{background:var(--red-soft);color:var(--red)}
+.chip.normal{background:var(--g150);color:var(--g500)}
+
+/* task card — red date rail (signature) */
+.task{display:flex;gap:0;overflow:hidden;margin-bottom:10px;cursor:pointer;transition:.15s}
+.task:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.task .rail{flex:none;width:64px;background:var(--g80);border-right:1px solid var(--g150);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;font-family:'IBM Plex Mono',monospace}
+.task.urgent-rail .rail{background:var(--red);color:#fff;border-right-color:var(--red)}
+.task .rail .d{font-size:21px;font-weight:600;line-height:1}
+.task .rail .m{font-size:11px;margin-top:3px;opacity:.85}
+.task .body{flex:1;padding:12px 14px;min-width:0}
+.task .t{font-weight:700;font-size:15px;margin-bottom:5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.task .meta{font-size:13px;color:var(--g500);display:flex;flex-wrap:wrap;gap:4px 14px}
+.task.done-card{opacity:.62}
+.assg{display:flex;margin-left:auto}
+.assg .avatar{width:24px;height:24px;font-size:10px;border:2px solid #fff;margin-left:-7px}
+
+/* ---------- filter bar ---------- */
+.fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.fbar select{width:auto;padding:7px 10px;font-size:13px;border-radius:8px}
+.seg{display:inline-flex;background:var(--g150);border-radius:9px;padding:3px}
+.seg button{padding:6px 13px;font-size:13px;font-weight:700;border-radius:7px;color:var(--g500)}
+.seg button.on{background:var(--white);color:var(--red);box-shadow:var(--shadow)}
+
+/* ---------- calendar ---------- */
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cal-head .mon{font-weight:800;font-size:17px;flex:1;text-align:center}
+.cal-nav{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--g300);font-size:16px;background:#fff}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .dow{text-align:center;font-size:11px;font-weight:700;color:var(--g500);padding:4px 0}
+.cal .cell{background:var(--white);border:1px solid var(--g150);border-radius:8px;min-height:74px;padding:4px;cursor:pointer;overflow:hidden}
+.cal .cell.dim{background:var(--g80);opacity:.55}
+.cal .cell .n{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--g500);padding:1px 3px}
+.cal .cell.today .n{background:var(--red);color:#fff;border-radius:6px;display:inline-block}
+.cal .ev{font-size:10px;font-weight:600;padding:1px 4px;border-radius:4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--g150);color:var(--g700)}
+.cal .ev.urgent{background:var(--red-soft);color:var(--red)}
+.cal .ev.done{background:var(--ok-soft);color:var(--ok);text-decoration:line-through}
+.cal .more{font-size:10px;color:var(--red);font-weight:700;padding:1px 4px}
+.week-col{background:var(--white);border:1px solid var(--g150);border-radius:8px;padding:6px;min-height:90px}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+@media(max-width:719px){.week-grid{grid-template-columns:1fr}.week-col{min-height:0}}
+
+/* ---------- modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(24,26,30,.5);z-index:90;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:720px){.overlay{align-items:center;padding:30px}}
+.modal{background:var(--white);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:20px}
+@media(min-width:720px){.modal{border-radius:18px}}
+.modal h3{font-size:18px;font-weight:800;display:flex;align-items:center}
+.modal .x{margin-left:auto;width:32px;height:32px;border-radius:8px;font-size:17px;color:var(--g500)}
+.modal .x:hover{background:var(--g150)}
+
+/* ---------- detail ---------- */
+.dt-row{display:flex;gap:10px;font-size:14px;margin:9px 0;color:var(--g700)}
+.dt-row .ic{flex:none;width:20px;text-align:center}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.thumbs img{width:76px;height:76px;object-fit:cover;border-radius:9px;border:1px solid var(--g150);cursor:pointer}
+.thumbs .del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;line-height:20px;text-align:center}
+.thumb-wrap{position:relative}
+.sect{font-size:13px;font-weight:800;color:var(--g500);letter-spacing:.4px;margin:20px 0 8px;display:flex;align-items:center;gap:8px}
+.sect::after{content:"";flex:1;height:1px;background:var(--g150)}
+.cmt{display:flex;gap:9px;margin-bottom:11px}
+.cmt .bub{background:var(--g80);border-radius:4px 12px 12px 12px;padding:8px 12px;flex:1}
+.cmt .who{font-size:12px;font-weight:700}
+.cmt .when{font-size:11px;color:var(--g500);font-family:'IBM Plex Mono',monospace;margin-left:6px;font-weight:500}
+.hist{border-left:2px solid var(--g150);margin-left:8px;padding-left:14px}
+.hist .h-item{position:relative;padding-bottom:12px;font-size:13px;color:var(--g700)}
+.hist .h-item::before{content:"";position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--g300)}
+.hist .h-item:first-child::before{background:var(--red)}
+.hist .hw{font-weight:700;color:var(--ink)}
+.hist .ht{font-size:11px;color:var(--g500);font-family:'IBM Plex Mono',monospace}
+.hist .chg{background:var(--g80);border-radius:7px;padding:5px 9px;margin-top:4px;font-size:12.5px}
+.hist .old{color:var(--g500);text-decoration:line-through}
+.hist .new{color:var(--red);font-weight:600}
+
+/* ---------- chat ---------- */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100dvh - 210px);min-height:340px}
+.chat-msgs{flex:1;overflow-y:auto;padding:6px 2px}
+.msg{display:flex;gap:8px;margin-bottom:10px;max-width:82%}
+.msg .bub{background:var(--white);border:1px solid var(--g150);border-radius:4px 14px 14px 14px;padding:8px 12px;box-shadow:var(--shadow)}
+.msg.me{margin-left:auto;flex-direction:row-reverse}
+.msg.me .bub{background:var(--red);color:#fff;border-color:var(--red);border-radius:14px 4px 14px 14px}
+.msg .who{font-size:11.5px;font-weight:700;color:var(--g500);margin-bottom:2px}
+.msg .when{font-size:10px;opacity:.65;font-family:'IBM Plex Mono',monospace;margin-top:3px;text-align:right}
+.chat-in{display:flex;gap:8px;padding-top:10px}
+.chat-in input{border-radius:99px}
+.chat-in .send{width:44px;height:44px;flex:none;border-radius:50%;background:var(--red);color:#fff;font-size:17px}
+.day-div{text-align:center;font-size:11px;color:var(--g500);font-weight:700;margin:12px 0;font-family:'IBM Plex Mono',monospace}
+
+/* ---------- dashboard ---------- */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+@media(min-width:720px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{padding:14px 16px}
+.stat .n{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;line-height:1.1}
+.stat .l{font-size:12.5px;color:var(--g500);font-weight:600;margin-top:3px}
+.stat.hl{background:var(--red);border-color:var(--red)}
+.stat.hl .n,.stat.hl .l{color:#fff}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+.bar-row .nm{width:110px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row .tr{flex:1;height:18px;background:var(--g150);border-radius:9px;overflow:hidden;display:flex}
+.bar-row .sg{height:100%}
+.bar-row .ct{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--g500);width:26px;text-align:right}
+
+/* ---------- gallery ---------- */
+.alb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.alb{overflow:hidden;cursor:pointer;transition:.15s}
+.alb:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.alb .cov{height:150px;background:var(--g150) center/cover no-repeat;display:grid;place-items:center;color:var(--g500);font-size:34px}
+.alb .inf{padding:11px 13px}
+.alb .t{font-weight:700;font-size:14.5px}
+.alb .s{font-size:12px;color:var(--g500);margin-top:2px;font-family:'IBM Plex Mono',monospace}
+.ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.ph-grid .ph{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;cursor:pointer;background:var(--g150)}
+.ph-grid img{width:100%;height:100%;object-fit:cover;display:block}
+.lightbox{position:fixed;inset:0;background:rgba(15,16,18,.93);z-index:120;display:flex;flex-direction:column}
+.lightbox img{flex:1;object-fit:contain;min-height:0;width:100%}
+.lightbox .lb-bar{display:flex;gap:14px;align-items:center;justify-content:center;padding:14px;color:#fff}
+.lightbox .lb-bar button,.lightbox .lb-bar a{color:#fff;font-size:14px;font-weight:700;background:rgba(255,255,255,.14);padding:8px 16px;border-radius:99px;text-decoration:none}
+.pub-head{background:var(--white);border-bottom:3px solid var(--red);padding:22px 16px;text-align:center}
+.pub-head h1{font-size:21px;font-weight:800}
+.pub-head p{color:var(--g500);font-size:13.5px;margin-top:4px}
+
+/* ---------- login ---------- */
+.login-wrap{min-height:100dvh;display:grid;place-items:center;padding:20px;background:
+  linear-gradient(160deg,var(--g80) 60%,var(--red-soft))}
+.login{width:100%;max-width:380px;padding:30px 26px}
+.login .logo-lg{width:54px;height:54px;border-radius:14px;background:var(--red);color:#fff;display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;margin:0 auto 14px}
+.login h1{text-align:center;font-size:21px;font-weight:800}
+.login p{text-align:center;color:var(--g500);font-size:13.5px;margin-top:4px}
+.err{background:var(--red-soft);color:var(--red);font-size:13px;font-weight:600;border-radius:9px;padding:9px 12px;margin-top:14px}
+
+/* ---------- misc ---------- */
+.empty{text-align:center;color:var(--g500);padding:44px 16px;font-size:14px}
+.empty .big{font-size:38px;margin-bottom:8px}
+#toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13.5px;font-weight:600;padding:10px 18px;border-radius:99px;z-index:200;box-shadow:var(--shadow-lg);opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+.spin{width:22px;height:22px;border:3px solid var(--g300);border-top-color:var(--red);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-page{min-height:100dvh;display:grid;place-items:center}
+.asg-pick{display:flex;flex-wrap:wrap;gap:7px}
+.asg-pick .p{display:flex;align-items:center;gap:6px;border:1.5px solid var(--g300);border-radius:99px;padding:5px 12px 5px 6px;font-size:13px;font-weight:600;cursor:pointer;background:#fff}
+.asg-pick .p.on{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.up-zone{border:2px dashed var(--g300);border-radius:12px;padding:18px;text-align:center;color:var(--g500);font-size:13.5px;cursor:pointer;background:var(--g80)}
+.up-zone:hover{border-color:var(--red);color:var(--red)}
+progress{width:100%;height:8px;accent-color:var(--red)}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading-page"><div class="spin"></div></div></div>
+<div id="toast"></div>
+<script type="module">
+/* ================================================================
+   ⚙️ CONFIG — แก้ 2 จุดนี้ตาม SETUP_GUIDE.md
+   ================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAXUSUI8x22lXey4J-_v3TCDu3cBI2Fil0",
+  authDomain: "nevercoffee-teamwork.firebaseapp.com",
+  projectId: "nevercoffee-teamwork",
+  storageBucket: "nevercoffee-teamwork.firebasestorage.app",
+  messagingSenderId: "414706038674",
+  appId: "1:414706038674:web:ead80660a35bbeb292b34b"
+};
+// Apps Script Web App URL สำหรับแจ้งเตือน LINE (เว้นว่าง "" = ปิดการแจ้งเตือน)
+const LINE_WEBHOOK_URL = "";
+const APP_NAME = "TeamWork";
+/* ================================================================ */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ---------------- helpers ---------------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const THM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const THD = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+const pad = n => String(n).padStart(2,"0");
+const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayStr = () => dstr(new Date());
+function fmtDate(s){ if(!s) return "-"; const [y,m,d]=s.split("-").map(Number); return `${d} ${THM[m-1]} ${y+543}`; }
+function fmtTS(ts){ if(!ts) return ""; const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return `${d.getDate()} ${THM[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove("show"),2400); }
+const COLORS=["#C8102E","#1B5FA8","#1B8A4C","#B77800","#7B3FA0","#0E7C86","#B0413E","#5A6169","#2E6E3E","#8C5A2B"];
+function userColor(uid){ let h=0; for(const c of uid) h=(h*31+c.charCodeAt(0))>>>0; return COLORS[h%COLORS.length]; }
+function av(u,sz){ const nm=(u&&u.displayName)||"?"; return `<span class="avatar" style="background:${u&&u.color?u.color:'#7A828C'}${sz?`;width:${sz}px;height:${sz}px;font-size:${Math.round(sz*0.42)}px`:''}" title="${esc(nm)}">${esc(nm.trim().charAt(0).toUpperCase())}</span>`; }
+function notifyLine(text){ if(!LINE_WEBHOOK_URL) return;
+  try{ fetch(LINE_WEBHOOK_URL+"?text="+encodeURIComponent(`[${APP_NAME}] `+text),{mode:"no-cors"}); }catch(e){} }
+
+// บีบอัดรูปฝั่ง client → dataURL JPEG
+function compressImage(file, maxSide=1280, quality=0.72){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{ let{width:w,height:h}=img;
+      if(Math.max(w,h)>maxSide){ const r=maxSide/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(img,0,0,w,h);
+      let out=cv.toDataURL("image/jpeg",quality);
+      if(out.length>900000) out=cv.toDataURL("image/jpeg",0.5);
+      URL.revokeObjectURL(img.src); res(out); };
+    img.onerror=rej; img.src=URL.createObjectURL(file);
+  });
+}
+
+/* ---------------- state ---------------- */
+const STATUS={todo:"รอทำ",doing:"กำลังทำ",done:"เสร็จ"};
+const PRIO={urgent:"ด่วน",normal:"ปกติ"};
+const S={
+  user:null, profile:null, users:{}, tasks:[], chat:[],
+  tab:"sched", calMode:"month", calDate:new Date(),
+  f:{status:"",prio:"",asg:"",q:""},
+  unsub:[], detailUnsub:[], comments:[], history:[], taskImgs:[],
+  galleries:[], gPhotos:[], openAlbum:null,
+  chatReady:false
+};
+const publicParams = new URLSearchParams(location.search);
+const PUBLIC_ALBUM = publicParams.get("album");
+const PUBLIC_GALLERY = publicParams.has("gallery") || !!PUBLIC_ALBUM;
+
+/* ---------------- firebase init ---------------- */
+let db, auth;
+if(FIREBASE_CONFIG.apiKey.includes("PASTE")){
+  $("#app").innerHTML=`<div class="login-wrap"><div class="card login">
+    <div class="logo-lg">TW</div><h1>ยังไม่ได้ตั้งค่า Firebase</h1>
+    <p>เปิดไฟล์ index.html แล้ววาง FIREBASE_CONFIG ตามขั้นตอนใน SETUP_GUIDE.md ก่อนใช้งานครับ</p></div></div>`;
+  throw new Error("no config");
+}
+const fapp = initializeApp(FIREBASE_CONFIG);
+db = getFirestore(fapp); auth = getAuth(fapp);
+
+/* ================================================================
+   PUBLIC GALLERY MODE (ไม่ต้อง login)
+   ================================================================ */
+async function bootPublic(){
+  document.title="แกลเลอรี่ภาพกิจกรรม";
+  if(PUBLIC_ALBUM){ renderPublicAlbum(PUBLIC_ALBUM); } else { renderPublicList(); }
+}
+async function renderPublicList(){
+  $("#app").innerHTML=`<div class="pub-head"><h1>📷 แกลเลอรี่ภาพกิจกรรม</h1><p>รวมภาพบรรยากาศกิจกรรมของบริษัท</p></div>
+    <div class="main" id="pub-list"><div class="spin" style="margin-top:40px"></div></div>`;
+  const snap=await getDocs(query(collection(db,"galleries"),orderBy("eventDate","desc")));
+  const list=snap.docs.map(d=>({id:d.id,...d.data()}));
+  $("#pub-list").innerHTML = list.length? `<div class="alb-grid">`+list.map(a=>`
+    <div class="card alb" data-act="pub-open" data-id="${a.id}">
+      <div class="cov" style="${a.cover?`background-image:url(${a.cover})`:''}">${a.cover?'':'📷'}</div>
+      <div class="inf"><div class="t">${esc(a.title)}</div>
+      <div class="s">${fmtDate(a.eventDate)} · ${a.photoCount||0} รูป</div></div>
+    </div>`).join("")+`</div>` : `<div class="empty"><div class="big">📷</div>ยังไม่มีอัลบั้มภาพ</div>`;
+}
+async function renderPublicAlbum(id){
+  $("#app").innerHTML=`<div class="pub-head" id="pub-h"><h1>กำลังโหลด…</h1></div>
+    <div class="main" id="pub-ph"><div class="spin" style="margin-top:40px"></div></div>`;
+  const ad=await getDoc(doc(db,"galleries",id));
+  if(!ad.exists()){ $("#pub-h").innerHTML=`<h1>ไม่พบอัลบั้มนี้</h1><p>ลิงก์อาจไม่ถูกต้อง หรืออัลบั้มถูกลบไปแล้ว</p>`; $("#pub-ph").innerHTML=""; return; }
+  const a=ad.data();
+  $("#pub-h").innerHTML=`<h1>${esc(a.title)}</h1><p>${fmtDate(a.eventDate)}${a.description?` · ${esc(a.description)}`:""}</p>`;
+  document.title=a.title;
+  const ps=await getDocs(query(collection(db,"galleries",id,"photos"),orderBy("createdAt","asc")));
+  S.gPhotos=ps.docs.map(d=>({id:d.id,...d.data()}));
+  $("#pub-ph").innerHTML = S.gPhotos.length? `<div class="ph-grid">`+S.gPhotos.map((p,i)=>`
+      <div class="ph" data-act="lightbox" data-i="${i}"><img src="${p.data}" loading="lazy" alt=""></div>`).join("")+`</div>`
+    : `<div class="empty"><div class="big">🖼️</div>ยังไม่มีรูปในอัลบั้มนี้</div>`;
+}
+function openLightbox(i){
+  const arr=S.gPhotos; if(!arr[i]) return;
+  const el=document.createElement("div"); el.className="lightbox"; el.id="lb";
+  el.innerHTML=`<img src="${arr[i].data}">
+    <div class="lb-bar">
+      <button data-act="lb-nav" data-d="-1">‹ ก่อนหน้า</button>
+      <span class="mono">${i+1} / ${arr.length}</span>
+      <button data-act="lb-nav" data-d="1">ถัดไป ›</button>
+      <a href="${arr[i].data}" download="photo-${i+1}.jpg">⬇ ดาวน์โหลด</a>
+      <button data-act="lb-close">✕ ปิด</button>
+    </div>`;
+  el.dataset.i=i; document.body.appendChild(el);
+}
+
+/* ================================================================
+   AUTH + SHELL
+   ================================================================ */
+function renderLogin(err){
+  $("#app").innerHTML=`<div class="login-wrap"><div class="card login">
+    <div class="logo-lg">TW</div>
+    <h1>${APP_NAME}</h1><p>ระบบจัดตารางงานทีม · เข้าสู่ระบบเพื่อใช้งาน</p>
+    <form id="login-f">
+      <label>Username</label><input id="l-user" autocomplete="username" required autocapitalize="none">
+      <label>Password</label><input id="l-pass" type="password" autocomplete="current-password" required>
+      ${err?`<div class="err">${esc(err)}</div>`:""}
+      <button class="btn btn-red" style="width:100%;margin-top:18px" type="submit">เข้าสู่ระบบ</button>
+    </form></div></div>`;
+  $("#login-f").addEventListener("submit", async e=>{
+    e.preventDefault();
+    const u=$("#l-user").value.trim().toLowerCase(), p=$("#l-pass").value;
+    const btn=e.target.querySelector("button"); btn.disabled=true; btn.textContent="กำลังเข้าสู่ระบบ…";
+    try{ await signInWithEmailAndPassword(auth, u.includes("@")?u:u+"@team.app", p); }
+    catch(ex){ renderLogin("Username หรือ Password ไม่ถูกต้อง"); }
+  });
+}
+
+async function ensureProfile(user){
+  const ref=doc(db,"users",user.uid);
+  const snap=await getDoc(ref);
+  if(snap.exists()) return snap.data();
+  const username=(user.email||"").split("@")[0];
+  const prof={username, displayName:username, color:userColor(user.uid), createdAt:serverTimestamp()};
+  await setDoc(ref,prof); return prof;
+}
+
+function subscribeCore(){
+  S.unsub.push(onSnapshot(collection(db,"users"), s=>{
+    S.users={}; s.forEach(d=>S.users[d.id]={id:d.id,...d.data()});
+    if(S.tab!=="chat") renderTab(false);
+  }));
+  S.unsub.push(onSnapshot(query(collection(db,"tasks"),orderBy("date","asc")), s=>{
+    S.tasks=s.docs.map(d=>({id:d.id,...d.data()}));
+    if(["sched","dash"].includes(S.tab)) renderTab(false);
+  }));
+  S.unsub.push(onSnapshot(query(collection(db,"chat"),orderBy("createdAt","desc"),limit(120)), s=>{
+    S.chat=s.docs.map(d=>({id:d.id,...d.data()})).reverse();
+    S.chatReady=true;
+    if(S.tab==="chat"){ renderChatMsgs(); markChatRead(); } else updateChatBadge();
+  }));
+}
+function lastChatTS(){ const m=S.chat[S.chat.length-1]; return m&&m.createdAt&&m.createdAt.toMillis?m.createdAt.toMillis():0; }
+function markChatRead(){ localStorage.setItem("chatRead", String(lastChatTS())); updateChatBadge(); }
+function updateChatBadge(){
+  const b=$("#chat-badge"); if(!b) return;
+  const last=S.chat[S.chat.length-1];
+  const unread = last && last.uid!==S.user.uid && lastChatTS()>Number(localStorage.getItem("chatRead")||0);
+  b.classList.toggle("hide",!unread);
+}
+
+function renderShell(){
+  const me=S.profile;
+  $("#app").innerHTML=`
+    <div class="topbar">
+      <div class="topbar-in">
+        <div class="brand"><span class="logo">TW</span> ${APP_NAME}</div>
+        <div class="me">${av({...me,color:me.color})}
+          <button class="btn-ghost" data-act="edit-name" title="แก้ชื่อที่แสดง">${esc(me.displayName)}</button>
+          <button class="btn-ghost" data-act="logout">ออก</button></div>
+      </div>
+      <div class="tabs">
+        <button class="tab ${S.tab==='sched'?'on':''}" data-act="tab" data-t="sched">📋 ตารางงาน</button>
+        <button class="tab ${S.tab==='chat'?'on':''}" data-act="tab" data-t="chat">💬 แชท <span id="chat-badge" class="badge hide"></span></button>
+        <button class="tab ${S.tab==='dash'?'on':''}" data-act="tab" data-t="dash">📊 Dashboard</button>
+        <button class="tab ${S.tab==='gal'?'on':''}" data-act="tab" data-t="gal">📷 แกลเลอรี่</button>
+      </div>
+    </div>
+    <div class="main" id="page"></div>
+    <button class="fab hide" id="fab" data-act="fab">＋</button>`;
+  renderTab(true);
+}
+function renderTab(scroll){
+  if(!$("#page")) return;
+  const fab=$("#fab");
+  if(S.tab==="sched"){ fab.classList.remove("hide"); fab.dataset.act="new-task"; renderSched(); }
+  else if(S.tab==="chat"){ fab.classList.add("hide"); renderChat(); markChatRead(); }
+  else if(S.tab==="dash"){ fab.classList.add("hide"); renderDash(); }
+  else if(S.tab==="gal"){ fab.classList.remove("hide"); fab.dataset.act="new-album"; renderGalAdmin(); }
+  updateChatBadge();
+  if(scroll) window.scrollTo(0,0);
+}
+
+/* ================================================================
+   ตารางงาน — ปฏิทิน (เดือน/สัปดาห์) + ลิสต์
+   ================================================================ */
+function filteredTasks(){
+  return S.tasks.filter(t=>
+    (!S.f.status||t.status===S.f.status)&&
+    (!S.f.prio||t.priority===S.f.prio)&&
+    (!S.f.asg||(t.assignees||[]).includes(S.f.asg))&&
+    (!S.f.q||(t.title+" "+(t.location||"")+" "+(t.detail||"")).toLowerCase().includes(S.f.q.toLowerCase()))
+  );
+}
+function taskCard(t){
+  const [y,m,d]=t.date.split("-");
+  const asg=(t.assignees||[]).map(uid=>S.users[uid]).filter(Boolean);
+  return `<div class="card task ${t.priority==='urgent'&&t.status!=='done'?'urgent-rail':''} ${t.status==='done'?'done-card':''}" data-act="open-task" data-id="${t.id}">
+    <div class="rail"><div class="d">${Number(d)}</div><div class="m">${THM[Number(m)-1]}</div></div>
+    <div class="body">
+      <div class="t">${esc(t.title)}
+        <span class="chip ${t.status}">${STATUS[t.status]}</span>
+        ${t.priority==="urgent"?`<span class="chip urgent">🔥 ด่วน</span>`:""}
+        <span class="assg">${asg.slice(0,4).map(u=>av(u,24)).join("")}</span></div>
+      <div class="meta">
+        ${t.timeStart?`<span class="mono">🕐 ${t.timeStart}${t.timeEnd?"–"+t.timeEnd:""}</span>`:""}
+        ${t.location?`<span>📍 ${esc(t.location)}</span>`:""}
+        ${t.imageCount?`<span>🖼️ ${t.imageCount}</span>`:""}
+        ${t.commentCount?`<span>💬 ${t.commentCount}</span>`:""}
+      </div>
+    </div></div>`;
+}
+function renderSched(){
+  const users=Object.values(S.users);
+  $("#page").innerHTML=`
+    <div class="fbar">
+      <div class="seg">
+        <button class="${S.calMode==='month'?'on':''}" data-act="calmode" data-m="month">เดือน</button>
+        <button class="${S.calMode==='week'?'on':''}" data-act="calmode" data-m="week">สัปดาห์</button>
+        <button class="${S.calMode==='list'?'on':''}" data-act="calmode" data-m="list">ลิสต์</button>
+      </div>
+      <select id="f-status"><option value="">สถานะ: ทั้งหมด</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${S.f.status===k?'selected':''}>${v}</option>`).join("")}</select>
+      <select id="f-prio"><option value="">ความสำคัญ: ทั้งหมด</option>${Object.entries(PRIO).map(([k,v])=>`<option value="${k}" ${S.f.prio===k?'selected':''}>${v}</option>`).join("")}</select>
+      <select id="f-asg"><option value="">ผู้รับผิดชอบ: ทุกคน</option>${users.map(u=>`<option value="${u.id}" ${S.f.asg===u.id?'selected':''}>${esc(u.displayName)}</option>`).join("")}</select>
+      <button class="btn btn-line btn-sm" data-act="export">⬇ Export Excel</button>
+    </div>
+    <div id="sched-body"></div>`;
+  ["status","prio","asg"].forEach(k=>{
+    $("#f-"+k).addEventListener("change",e=>{ S.f[k]=e.target.value; renderSchedBody(); });
+  });
+  renderSchedBody();
+}
+function renderSchedBody(){
+  const el=$("#sched-body"); if(!el) return;
+  if(S.calMode==="month") el.innerHTML=calMonthHTML();
+  else if(S.calMode==="week") el.innerHTML=calWeekHTML();
+  else el.innerHTML=listHTML();
+}
+function calHeadHTML(label){
+  return `<div class="cal-head">
+    <button class="cal-nav" data-act="cal-nav" data-d="-1">‹</button>
+    <div class="mon">${label}</div>
+    <button class="btn btn-line btn-sm" data-act="cal-today">วันนี้</button>
+    <button class="cal-nav" data-act="cal-nav" data-d="1">›</button></div>`;
+}
+function calMonthHTML(){
+  const base=S.calDate, y=base.getFullYear(), m=base.getMonth();
+  const first=new Date(y,m,1), start=new Date(y,m,1-first.getDay());
+  const tasks=filteredTasks(), today=todayStr();
+  let cells="";
+  for(let i=0;i<42;i++){
+    const d=new Date(start); d.setDate(start.getDate()+i);
+    const ds=dstr(d), dim=d.getMonth()!==m;
+    const evs=tasks.filter(t=>t.date===ds);
+    cells+=`<div class="cell ${dim?'dim':''} ${ds===today?'today':''}" data-act="cal-day" data-d="${ds}">
+      <span class="n">${d.getDate()}</span>
+      ${evs.slice(0,3).map(t=>`<div class="ev ${t.status==='done'?'done':(t.priority==='urgent'?'urgent':'')}">${esc(t.title)}</div>`).join("")}
+      ${evs.length>3?`<div class="more">+${evs.length-3} งาน</div>`:""}
+    </div>`;
+  }
+  return calHeadHTML(`${THM[m]} ${y+543}`)+`<div class="cal">${THD.map(d=>`<div class="dow">${d}</div>`).join("")}${cells}</div>`;
+}
+function calWeekHTML(){
+  const base=new Date(S.calDate); base.setDate(base.getDate()-base.getDay());
+  const end=new Date(base); end.setDate(base.getDate()+6);
+  const tasks=filteredTasks(), today=todayStr();
+  let cols="";
+  for(let i=0;i<7;i++){
+    const d=new Date(base); d.setDate(base.getDate()+i); const ds=dstr(d);
+    const evs=tasks.filter(t=>t.date===ds);
+    cols+=`<div class="week-col">
+      <div style="font-weight:800;font-size:12.5px;margin-bottom:6px;${ds===today?'color:var(--red)':''}">${THD[i]} <span class="mono">${d.getDate()}</span></div>
+      ${evs.map(t=>`<div class="ev ${t.status==='done'?'done':(t.priority==='urgent'?'urgent':'')}" style="font-size:11.5px;padding:4px 6px;cursor:pointer" data-act="open-task" data-id="${t.id}">${t.timeStart?`<span class="mono">${t.timeStart}</span> `:""}${esc(t.title)}</div>`).join("")||`<div style="font-size:11px;color:var(--g300)">—</div>`}
+    </div>`;
+  }
+  return calHeadHTML(`${fmtDate(dstr(base))} – ${fmtDate(dstr(end))}`)+`<div class="week-grid">${cols}</div>`;
+}
+function listHTML(){
+  const tasks=filteredTasks();
+  if(!tasks.length) return `<div class="empty"><div class="big">🗂️</div>ไม่มีงานตามเงื่อนไขที่เลือก<br>กดปุ่ม ＋ มุมขวาล่างเพื่อสร้างงานแรก</div>`;
+  const groups={};
+  tasks.forEach(t=>{ (groups[t.date]=groups[t.date]||[]).push(t); });
+  const today=todayStr();
+  return Object.keys(groups).sort().map(d=>`
+    <div class="sect">${d===today?"📌 วันนี้ · ":""}${fmtDate(d)}</div>
+    ${groups[d].map(taskCard).join("")}`).join("");
+}
+
+/* ================================================================
+   MODAL utilities
+   ================================================================ */
+function openModal(html){
+  closeModal();
+  const ov=document.createElement("div"); ov.className="overlay"; ov.id="ov";
+  ov.innerHTML=`<div class="modal">${html}</div>`;
+  ov.addEventListener("click",e=>{ if(e.target===ov) closeModal(); });
+  document.body.appendChild(ov); document.body.style.overflow="hidden";
+}
+function closeModal(){ const o=$("#ov"); if(o) o.remove(); document.body.style.overflow="";
+  S.detailUnsub.forEach(u=>u()); S.detailUnsub=[]; }
+
+/* ================================================================
+   TASK FORM (สร้าง/แก้ไข)
+   ================================================================ */
+let formImgs=[]; // dataURLs รูปใหม่ที่จะเพิ่ม
+function taskFormHTML(t){
+  const users=Object.values(S.users);
+  const sel=t?(t.assignees||[]):[S.user.uid];
+  return `<h3>${t?"✏️ แก้ไขงาน":"➕ สร้างงานใหม่"}<button class="x" data-act="close">✕</button></h3>
+  <form id="task-f">
+    <label>ชื่องาน *</label><input id="t-title" required value="${t?esc(t.title):""}" placeholder="เช่น อบรมพนักงานสาขาบางนา">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div><label>วันที่ *</label><input id="t-date" type="date" required value="${t?t.date:todayStr()}"></div>
+      <div><label>เริ่ม</label><input id="t-ts" type="time" value="${t?(t.timeStart||""):""}"></div>
+      <div><label>ถึง</label><input id="t-te" type="time" value="${t?(t.timeEnd||""):""}"></div>
+    </div>
+    <label>สถานที่</label><input id="t-loc" value="${t?esc(t.location||""):""}" placeholder="เช่น สำนักงานใหญ่ ชั้น 3">
+    <label>ลิงก์ Google Maps</label><input id="t-map" type="url" value="${t?esc(t.mapLink||""):""}" placeholder="https://maps.app.goo.gl/…">
+    <label>รายละเอียดงาน</label><textarea id="t-detail" placeholder="รายละเอียด สิ่งที่ต้องเตรียม ฯลฯ">${t?esc(t.detail||""):""}</textarea>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>สถานะ</label><select id="t-status">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${t&&t.status===k?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div><label>ความสำคัญ</label><select id="t-prio">${Object.entries(PRIO).map(([k,v])=>`<option value="${k}" ${(t?t.priority:"normal")===k?"selected":""}>${v}</option>`).join("")}</select></div>
+    </div>
+    <label>ผู้รับผิดชอบ</label>
+    <div class="asg-pick" id="asg-pick">${users.map(u=>`
+      <span class="p ${sel.includes(u.id)?"on":""}" data-uid="${u.id}">${av(u,22)} ${esc(u.displayName)}</span>`).join("")}</div>
+    <label>แนบรูปภาพ${t?" (รูปเดิมจัดการได้ในหน้ารายละเอียด)":""}</label>
+    <div class="up-zone" id="t-up">📎 แตะเพื่อเลือกรูป (เลือกได้หลายรูป)</div>
+    <input type="file" id="t-file" accept="image/*" multiple class="hide">
+    <div class="thumbs" id="t-thumbs"></div>
+    <div style="display:flex;gap:10px;margin-top:22px">
+      <button type="button" class="btn btn-line" style="flex:1" data-act="close">ยกเลิก</button>
+      <button type="submit" class="btn btn-red" style="flex:2" id="t-save">${t?"บันทึกการแก้ไข":"สร้างงาน"}</button>
+    </div>
+  </form>`;
+}
+function openTaskForm(t){
+  formImgs=[]; openModal(taskFormHTML(t));
+  $("#asg-pick").addEventListener("click",e=>{ const p=e.target.closest(".p"); if(p) p.classList.toggle("on"); });
+  $("#t-up").addEventListener("click",()=>$("#t-file").click());
+  $("#t-file").addEventListener("change",async e=>{
+    for(const f of e.target.files){ try{ formImgs.push(await compressImage(f)); }catch(_){toast("อ่านรูปไม่สำเร็จ");} }
+    $("#t-thumbs").innerHTML=formImgs.map((d,i)=>`<span class="thumb-wrap"><img src="${d}"><button type="button" class="del" data-act="form-img-del" data-i="${i}">✕</button></span>`).join("");
+    e.target.value="";
+  });
+  $("#task-f").addEventListener("submit",e=>{ e.preventDefault(); saveTask(t); });
+}
+const FIELD_TH={title:"ชื่องาน",date:"วันที่",timeStart:"เวลาเริ่ม",timeEnd:"เวลาสิ้นสุด",location:"สถานที่",mapLink:"ลิงก์แผนที่",detail:"รายละเอียด",status:"สถานะ",priority:"ความสำคัญ",assignees:"ผู้รับผิดชอบ"};
+function fieldVal(k,v){
+  if(k==="status") return STATUS[v]||"-";
+  if(k==="priority") return PRIO[v]||"-";
+  if(k==="date") return fmtDate(v);
+  if(k==="assignees") return (v||[]).map(id=>S.users[id]?S.users[id].displayName:"?").join(", ")||"-";
+  return v||"-";
+}
+async function saveTask(old){
+  const btn=$("#t-save"); btn.disabled=true; btn.textContent="กำลังบันทึก…";
+  const data={
+    title:$("#t-title").value.trim(), date:$("#t-date").value,
+    timeStart:$("#t-ts").value, timeEnd:$("#t-te").value,
+    location:$("#t-loc").value.trim(), mapLink:$("#t-map").value.trim(),
+    detail:$("#t-detail").value.trim(),
+    status:$("#t-status").value, priority:$("#t-prio").value,
+    assignees:[...document.querySelectorAll("#asg-pick .p.on")].map(p=>p.dataset.uid),
+    updatedAt:serverTimestamp(), updatedBy:S.user.uid
+  };
+  try{
+    const me=S.profile.displayName;
+    if(old){ // แก้ไข → บันทึก history เฉพาะ field ที่เปลี่ยน
+      const changes=[];
+      for(const k of Object.keys(FIELD_TH)){
+        const a=JSON.stringify(old[k]??""), b=JSON.stringify(data[k]??"");
+        if(a!==b) changes.push({field:k,fieldTH:FIELD_TH[k],from:fieldVal(k,old[k]),to:fieldVal(k,data[k])});
+      }
+      await updateDoc(doc(db,"tasks",old.id),data);
+      if(changes.length) await addDoc(collection(db,"tasks",old.id,"history"),
+        {type:"edit",by:S.user.uid,byName:me,changes,createdAt:serverTimestamp()});
+      await addFormImgs(old.id, old.imageCount||0);
+      if(changes.some(c=>c.field==="status"))
+        notifyLine(`🔄 "${data.title}" เปลี่ยนสถานะเป็น ${STATUS[data.status]} โดย ${me}`);
+      toast("บันทึกการแก้ไขแล้ว");
+    }else{
+      data.createdAt=serverTimestamp(); data.createdBy=S.user.uid; data.imageCount=0; data.commentCount=0;
+      const ref=await addDoc(collection(db,"tasks"),data);
+      await addDoc(collection(db,"tasks",ref.id,"history"),
+        {type:"create",by:S.user.uid,byName:me,changes:[],createdAt:serverTimestamp()});
+      await addFormImgs(ref.id,0);
+      notifyLine(`🆕 งานใหม่: "${data.title}" วันที่ ${fmtDate(data.date)}${data.location?" @"+data.location:""} โดย ${me}`);
+      toast("สร้างงานแล้ว");
+    }
+    closeModal();
+  }catch(ex){ console.error(ex); toast("บันทึกไม่สำเร็จ ลองอีกครั้ง"); btn.disabled=false; btn.textContent="บันทึก"; }
+}
+async function addFormImgs(taskId, baseCount){
+  if(!formImgs.length) return;
+  for(const d of formImgs) await addDoc(collection(db,"tasks",taskId,"images"),{data:d,by:S.user.uid,createdAt:serverTimestamp()});
+  await updateDoc(doc(db,"tasks",taskId),{imageCount:baseCount+formImgs.length});
+  await addDoc(collection(db,"tasks",taskId,"history"),
+    {type:"image",by:S.user.uid,byName:S.profile.displayName,changes:[{fieldTH:"รูปภาพ",from:"",to:`เพิ่ม ${formImgs.length} รูป`}],createdAt:serverTimestamp()});
+  formImgs=[];
+}
+
+/* ================================================================
+   TASK DETAIL — คอมเมนต์ + ประวัติ + รูป
+   ================================================================ */
+function openTaskDetail(id){
+  const t=S.tasks.find(x=>x.id===id); if(!t) return;
+  const asg=(t.assignees||[]).map(u=>S.users[u]).filter(Boolean);
+  const creator=S.users[t.createdBy];
+  openModal(`
+    <h3 style="gap:8px">${esc(t.title)}<button class="x" data-act="close">✕</button></h3>
+    <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap">
+      <span class="chip ${t.status}">${STATUS[t.status]}</span>
+      <span class="chip ${t.priority}">${t.priority==="urgent"?"🔥 ":""}${PRIO[t.priority]}</span>
+    </div>
+    <div class="dt-row"><span class="ic">📅</span><b>${fmtDate(t.date)}</b>${t.timeStart?`<span class="mono">${t.timeStart}${t.timeEnd?" – "+t.timeEnd:""} น.</span>`:""}</div>
+    ${t.location?`<div class="dt-row"><span class="ic">📍</span>${esc(t.location)}${t.mapLink?` <a href="${esc(t.mapLink)}" target="_blank" rel="noopener">เปิดแผนที่ ↗</a>`:""}</div>`:""}
+    ${!t.location&&t.mapLink?`<div class="dt-row"><span class="ic">📍</span><a href="${esc(t.mapLink)}" target="_blank" rel="noopener">เปิดแผนที่ ↗</a></div>`:""}
+    ${t.detail?`<div class="dt-row"><span class="ic">📝</span><span style="white-space:pre-wrap">${esc(t.detail)}</span></div>`:""}
+    <div class="dt-row"><span class="ic">👥</span><span style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${asg.length?asg.map(u=>`${av(u,22)} ${esc(u.displayName)}`).join(" · "):"ยังไม่ระบุ"}</span></div>
+    ${creator?`<div class="dt-row" style="font-size:12.5px;color:var(--g500)"><span class="ic">✚</span>สร้างโดย ${esc(creator.displayName)}</div>`:""}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-line btn-sm" data-act="edit-task" data-id="${t.id}">✏️ แก้ไขงาน</button>
+      <button class="btn btn-line btn-sm" data-act="add-img" data-id="${t.id}">🖼️ เพิ่มรูป</button>
+      <button class="btn btn-line btn-sm" style="color:var(--red);margin-left:auto" data-act="del-task" data-id="${t.id}">ลบงาน</button>
+    </div>
+    <input type="file" id="d-file" accept="image/*" multiple class="hide">
+    <div class="sect">รูปภาพ</div><div class="thumbs" id="d-imgs"><div class="spin"></div></div>
+    <div class="sect">คอมเมนต์</div><div id="d-cmts"><div class="spin"></div></div>
+    <form id="cmt-f" style="display:flex;gap:8px;margin-top:10px">
+      <input id="cmt-in" placeholder="พิมพ์คอมเมนต์…" autocomplete="off">
+      <button class="btn btn-red btn-sm" type="submit">ส่ง</button></form>
+    <div class="sect">ประวัติการแก้ไข</div><div id="d-hist"><div class="spin"></div></div>
+  `);
+  // realtime subscriptions เฉพาะตอนเปิด detail
+  S.detailUnsub.push(onSnapshot(query(collection(db,"tasks",id,"images"),orderBy("createdAt","asc")),s=>{
+    S.taskImgs=s.docs.map(d=>({id:d.id,...d.data()}));
+    const el=$("#d-imgs"); if(!el) return;
+    el.innerHTML=S.taskImgs.length?S.taskImgs.map((p,i)=>`<span class="thumb-wrap">
+      <img src="${p.data}" data-act="task-lightbox" data-i="${i}">
+      <button class="del" data-act="del-img" data-id="${p.id}" data-tid="${id}">✕</button></span>`).join(""):`<span style="font-size:13px;color:var(--g500)">ยังไม่มีรูป</span>`;
+  }));
+  S.detailUnsub.push(onSnapshot(query(collection(db,"tasks",id,"comments"),orderBy("createdAt","asc")),s=>{
+    const el=$("#d-cmts"); if(!el) return;
+    const arr=s.docs.map(d=>d.data());
+    el.innerHTML=arr.length?arr.map(c=>{const u=S.users[c.by];return `<div class="cmt">${av(u,28)}
+      <div class="bub"><span class="who" style="color:${u?u.color:'#888'}">${esc(c.byName)}</span><span class="when">${fmtTS(c.createdAt)}</span>
+      <div style="white-space:pre-wrap">${esc(c.text)}</div></div></div>`;}).join(""):`<div style="font-size:13px;color:var(--g500)">ยังไม่มีคอมเมนต์ — เริ่มคุยเรื่องงานนี้ได้เลย</div>`;
+  }));
+  S.detailUnsub.push(onSnapshot(query(collection(db,"tasks",id,"history"),orderBy("createdAt","desc")),s=>{
+    const el=$("#d-hist"); if(!el) return;
+    el.innerHTML=`<div class="hist">`+s.docs.map(d=>{const h=d.data();
+      const head=h.type==="create"?"สร้างงานนี้":h.type==="image"?"อัปเดตรูปภาพ":"แก้ไขงาน";
+      return `<div class="h-item"><span class="hw">${esc(h.byName)}</span> ${head} <span class="ht">${fmtTS(h.createdAt)}</span>
+        ${(h.changes||[]).map(c=>`<div class="chg"><b>${esc(c.fieldTH)}:</b> ${c.from?`<span class="old">${esc(c.from)}</span> → `:""}<span class="new">${esc(c.to)}</span></div>`).join("")}
+      </div>`;}).join("")+`</div>`;
+  }));
+  $("#cmt-f").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const txt=$("#cmt-in").value.trim(); if(!txt) return;
+    $("#cmt-in").value="";
+    await addDoc(collection(db,"tasks",id,"comments"),{text:txt,by:S.user.uid,byName:S.profile.displayName,createdAt:serverTimestamp()});
+    await updateDoc(doc(db,"tasks",id),{commentCount:(S.tasks.find(x=>x.id===id)?.commentCount||0)+1});
+    notifyLine(`💬 ${S.profile.displayName} คอมเมนต์ใน "${t.title}": ${txt.slice(0,80)}`);
+  });
+  $("#d-file").addEventListener("change",async e=>{
+    const files=[...e.target.files]; e.target.value=""; if(!files.length) return;
+    toast(`กำลังอัปโหลด ${files.length} รูป…`);
+    formImgs=[]; for(const f of files){ try{ formImgs.push(await compressImage(f)); }catch(_){}}
+    await addFormImgs(id,(S.tasks.find(x=>x.id===id)?.imageCount)||S.taskImgs.length);
+    toast("เพิ่มรูปแล้ว");
+  });
+}
+async function deleteTaskImg(taskId,imgId){
+  if(!confirm("ลบรูปนี้?")) return;
+  await deleteDoc(doc(db,"tasks",taskId,"images",imgId));
+  await updateDoc(doc(db,"tasks",taskId),{imageCount:Math.max(0,S.taskImgs.length-1)});
+  await addDoc(collection(db,"tasks",taskId,"history"),
+    {type:"image",by:S.user.uid,byName:S.profile.displayName,changes:[{fieldTH:"รูปภาพ",from:"",to:"ลบ 1 รูป"}],createdAt:serverTimestamp()});
+}
+async function deleteTask(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(!confirm(`ลบงาน "${t.title}" ถาวร?\nคอมเมนต์และประวัติจะถูกลบด้วย`)) return;
+  for(const sub of ["comments","history","images"]){
+    const s=await getDocs(collection(db,"tasks",id,sub));
+    for(const d of s.docs) await deleteDoc(d.ref);
+  }
+  await deleteDoc(doc(db,"tasks",id));
+  closeModal(); toast("ลบงานแล้ว");
+  notifyLine(`🗑️ ${S.profile.displayName} ลบงาน "${t.title}"`);
+}
+
+/* ================================================================
+   EXPORT EXCEL
+   ================================================================ */
+function openExport(){
+  const d=new Date(), first=dstr(new Date(d.getFullYear(),d.getMonth(),1)), last=dstr(new Date(d.getFullYear(),d.getMonth()+1,0));
+  openModal(`<h3>⬇ Export Excel<button class="x" data-act="close">✕</button></h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>ตั้งแต่วันที่</label><input id="x-from" type="date" value="${first}"></div>
+      <div><label>ถึงวันที่</label><input id="x-to" type="date" value="${last}"></div>
+    </div>
+    <button class="btn btn-red" style="width:100%;margin-top:20px" data-act="do-export">ดาวน์โหลดไฟล์ Excel</button>`);
+}
+function doExport(){
+  const from=$("#x-from").value, to=$("#x-to").value;
+  const rows=S.tasks.filter(t=>t.date>=from&&t.date<=to).map(t=>({
+    "วันที่":t.date,"เวลา":t.timeStart?`${t.timeStart}${t.timeEnd?"-"+t.timeEnd:""}`:"",
+    "ชื่องาน":t.title,"สถานะ":STATUS[t.status],"ความสำคัญ":PRIO[t.priority],
+    "ผู้รับผิดชอบ":(t.assignees||[]).map(u=>S.users[u]?.displayName||"?").join(", "),
+    "สถานที่":t.location||"","ลิงก์แผนที่":t.mapLink||"","รายละเอียด":t.detail||"",
+    "สร้างโดย":S.users[t.createdBy]?.displayName||""
+  }));
+  if(!rows.length){ toast("ไม่มีงานในช่วงวันที่นี้"); return; }
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws["!cols"]=[{wch:11},{wch:12},{wch:30},{wch:9},{wch:9},{wch:20},{wch:22},{wch:24},{wch:40},{wch:12}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"ตารางงาน");
+  XLSX.writeFile(wb,`ตารางงาน_${from}_ถึง_${to}.xlsx`);
+  closeModal(); toast("ดาวน์โหลดแล้ว");
+}
+
+/* ================================================================
+   CHAT ROOM (realtime)
+   ================================================================ */
+function renderChat(){
+  $("#page").innerHTML=`<div class="chat-wrap">
+    <div class="chat-msgs" id="chat-msgs"></div>
+    <form class="chat-in" id="chat-f">
+      <input id="chat-in" placeholder="พิมพ์ข้อความถึงทีม…" autocomplete="off" maxlength="1000">
+      <button class="send" type="submit">➤</button></form></div>`;
+  renderChatMsgs();
+  $("#chat-f").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const txt=$("#chat-in").value.trim(); if(!txt) return;
+    $("#chat-in").value="";
+    await addDoc(collection(db,"chat"),{text:txt,uid:S.user.uid,byName:S.profile.displayName,createdAt:serverTimestamp()});
+  });
+}
+function renderChatMsgs(){
+  const el=$("#chat-msgs"); if(!el) return;
+  if(!S.chatReady){ el.innerHTML=`<div class="spin" style="margin-top:30px"></div>`; return; }
+  if(!S.chat.length){ el.innerHTML=`<div class="empty"><div class="big">💬</div>ยังไม่มีข้อความ — ทักทายทีมได้เลย</div>`; return; }
+  let html="", lastDay="";
+  for(const m of S.chat){
+    const d=m.createdAt&&m.createdAt.toDate?m.createdAt.toDate():new Date();
+    const day=dstr(d);
+    if(day!==lastDay){ html+=`<div class="day-div">— ${fmtDate(day)} —</div>`; lastDay=day; }
+    const me=m.uid===S.user.uid, u=S.users[m.uid];
+    html+=`<div class="msg ${me?"me":""}">${me?"":av(u,30)}
+      <div class="bub">${me?"":`<div class="who" style="color:${u?u.color:'#888'}">${esc(m.byName)}</div>`}
+      <div style="white-space:pre-wrap;word-break:break-word">${esc(m.text)}</div>
+      <div class="when">${pad(d.getHours())}:${pad(d.getMinutes())}</div></div></div>`;
+  }
+  el.innerHTML=html; el.scrollTop=el.scrollHeight;
+}
+
+/* ================================================================
+   DASHBOARD
+   ================================================================ */
+function renderDash(){
+  const T=S.tasks, today=todayStr();
+  const wk=new Date(); wk.setDate(wk.getDate()-wk.getDay());
+  const wkEnd=new Date(wk); wkEnd.setDate(wk.getDate()+6);
+  const inWeek=t=>t.date>=dstr(wk)&&t.date<=dstr(wkEnd);
+  const cnt=s=>T.filter(t=>t.status===s).length;
+  const urgent=T.filter(t=>t.priority==="urgent"&&t.status!=="done");
+  const todayTasks=T.filter(t=>t.date===today&&t.status!=="done");
+  const users=Object.values(S.users);
+  const perUser=users.map(u=>{
+    const all=T.filter(t=>(t.assignees||[]).includes(u.id));
+    return {u, todo:all.filter(t=>t.status==="todo").length, doing:all.filter(t=>t.status==="doing").length, done:all.filter(t=>t.status==="done").length, total:all.length};
+  }).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
+  const maxT=Math.max(1,...perUser.map(x=>x.total));
+  $("#page").innerHTML=`
+    <div class="stats">
+      <div class="card stat hl"><div class="n">${urgent.length}</div><div class="l">🔥 งานด่วนค้างอยู่</div></div>
+      <div class="card stat"><div class="n">${cnt("todo")}</div><div class="l">รอทำ</div></div>
+      <div class="card stat"><div class="n">${cnt("doing")}</div><div class="l">กำลังทำ</div></div>
+      <div class="card stat"><div class="n">${cnt("done")}</div><div class="l">เสร็จแล้ว</div></div>
+    </div>
+    <div class="sect">งานวันนี้ (${todayTasks.length}) · สัปดาห์นี้ ${T.filter(inWeek).length} งาน</div>
+    ${todayTasks.length?todayTasks.map(taskCard).join(""):`<div class="empty" style="padding:18px">ไม่มีงานค้างของวันนี้ 🎉</div>`}
+    ${urgent.length?`<div class="sect">งานด่วนทั้งหมด</div>${urgent.map(taskCard).join("")}`:""}
+    <div class="sect">ภาระงานต่อคน</div>
+    <div class="card" style="padding:16px 18px">
+      ${perUser.length?perUser.map(x=>`<div class="bar-row">
+        <span class="nm">${av(x.u,20)} ${esc(x.u.displayName)}</span>
+        <span class="tr">
+          <span class="sg" style="width:${x.todo/maxT*100}%;background:var(--g300)" title="รอทำ ${x.todo}"></span>
+          <span class="sg" style="width:${x.doing/maxT*100}%;background:var(--warn)" title="กำลังทำ ${x.doing}"></span>
+          <span class="sg" style="width:${x.done/maxT*100}%;background:var(--ok)" title="เสร็จ ${x.done}"></span>
+        </span><span class="ct">${x.total}</span></div>`).join("")
+      :`<div style="color:var(--g500);font-size:13.5px">ยังไม่มีการมอบหมายงาน</div>`}
+      <div style="display:flex;gap:14px;font-size:11.5px;color:var(--g500);margin-top:10px">
+        <span>▪️<span style="color:var(--g500)"> รอทำ</span></span><span style="color:var(--warn)">▪️ กำลังทำ</span><span style="color:var(--ok)">▪️ เสร็จ</span>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button class="btn btn-line" data-act="export">⬇ Export Excel</button></div>`;
+}
+
+/* ================================================================
+   GALLERY (ฝั่งทีม)
+   ================================================================ */
+function subscribeGalleries(){
+  if(S._galSub) return;
+  S._galSub=true;
+  S.unsub.push(onSnapshot(query(collection(db,"galleries"),orderBy("eventDate","desc")),s=>{
+    S.galleries=s.docs.map(d=>({id:d.id,...d.data()}));
+    if(S.tab==="gal") renderGalAdmin();
+  }));
+}
+function shareLink(id){ return location.origin+location.pathname+"?album="+id; }
+function renderGalAdmin(){
+  subscribeGalleries();
+  if(S.openAlbum){ renderAlbumAdmin(S.openAlbum); return; }
+  $("#page").innerHTML=`
+    <div style="display:flex;align-items:center;margin-bottom:14px;gap:10px">
+      <div style="font-weight:800;font-size:17px">อัลบั้มภาพกิจกรรม</div>
+      <a class="btn btn-line btn-sm" style="margin-left:auto;text-decoration:none" href="${location.pathname}?gallery" target="_blank">👁 ดูหน้าสาธารณะ</a>
+    </div>
+    ${S.galleries.length?`<div class="alb-grid">${S.galleries.map(a=>`
+      <div class="card alb" data-act="open-album" data-id="${a.id}">
+        <div class="cov" style="${a.cover?`background-image:url(${a.cover})`:''}">${a.cover?'':'📷'}</div>
+        <div class="inf"><div class="t">${esc(a.title)}</div>
+        <div class="s">${fmtDate(a.eventDate)} · ${a.photoCount||0} รูป</div></div>
+      </div>`).join("")}</div>`
+    :`<div class="empty"><div class="big">📷</div>ยังไม่มีอัลบั้ม<br>กด ＋ เพื่อสร้างอัลบั้มแรก เช่น "คลาสอบรมวันที่ 10 ก.ค."</div>`}`;
+}
+function openAlbumForm(){
+  openModal(`<h3>➕ สร้างอัลบั้มใหม่<button class="x" data-act="close">✕</button></h3>
+    <form id="alb-f">
+      <label>ชื่ออัลบั้ม *</label><input id="a-title" required placeholder="เช่น คลาสอบรมการขาย รุ่นที่ 3">
+      <label>วันที่จัดงาน *</label><input id="a-date" type="date" required value="${todayStr()}">
+      <label>คำอธิบาย</label><textarea id="a-desc" placeholder="รายละเอียดกิจกรรม (แสดงในหน้าสาธารณะ)"></textarea>
+      <button class="btn btn-red" style="width:100%;margin-top:20px" type="submit">สร้างอัลบั้ม</button>
+    </form>`);
+  $("#alb-f").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const ref=await addDoc(collection(db,"galleries"),{
+      title:$("#a-title").value.trim(), eventDate:$("#a-date").value, description:$("#a-desc").value.trim(),
+      cover:"", photoCount:0, createdBy:S.user.uid, createdAt:serverTimestamp()});
+    closeModal(); S.openAlbum=ref.id; renderTab(true); toast("สร้างอัลบั้มแล้ว — เพิ่มรูปได้เลย");
+  });
+}
+function renderAlbumAdmin(id){
+  const a=S.galleries.find(x=>x.id===id);
+  if(!a){ S.openAlbum=null; renderGalAdmin(); return; }
+  $("#page").innerHTML=`
+    <button class="btn-ghost" data-act="back-gal">‹ กลับหน้าอัลบั้ม</button>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin:8px 0 14px;flex-wrap:wrap">
+      <div><div style="font-weight:800;font-size:18px">${esc(a.title)}</div>
+      <div style="font-size:13px;color:var(--g500)" class="mono">${fmtDate(a.eventDate)} · ${a.photoCount||0} รูป</div></div>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-red btn-sm" data-act="copy-link" data-id="${id}">🔗 คัดลอกลิงก์แชร์</button>
+        <a class="btn btn-line btn-sm" style="text-decoration:none" href="${location.pathname}?album=${id}" target="_blank">👁 ดูแบบสาธารณะ</a>
+        <button class="btn btn-line btn-sm" style="color:var(--red)" data-act="del-album" data-id="${id}">ลบอัลบั้ม</button>
+      </div></div>
+    ${a.description?`<p style="font-size:14px;color:var(--g700);margin-bottom:14px">${esc(a.description)}</p>`:""}
+    <div class="up-zone" id="g-up">📎 แตะเพื่อเลือกรูปอัปโหลด (เลือกได้หลายรูปพร้อมกัน)</div>
+    <input type="file" id="g-file" accept="image/*" multiple class="hide">
+    <div id="g-prog" class="hide" style="margin-top:10px"><progress id="g-bar" max="100" value="0"></progress><div id="g-txt" style="font-size:12.5px;color:var(--g500);margin-top:4px"></div></div>
+    <div class="ph-grid" id="g-grid" style="margin-top:16px"><div class="spin"></div></div>`;
+  $("#g-up").addEventListener("click",()=>$("#g-file").click());
+  $("#g-file").addEventListener("change",e=>uploadAlbumPhotos(id,[...e.target.files]));
+  if(S._albSub) S._albSub();
+  S._albSub=onSnapshot(query(collection(db,"galleries",id,"photos"),orderBy("createdAt","asc")),s=>{
+    S.gPhotos=s.docs.map(d=>({id:d.id,...d.data()}));
+    const el=$("#g-grid"); if(!el) return;
+    el.innerHTML=S.gPhotos.length?S.gPhotos.map((p,i)=>`<div class="ph">
+      <img src="${p.data}" data-act="lightbox" data-i="${i}" loading="lazy">
+      <button class="del" style="position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(20,22,25,.75);color:#fff" data-act="del-photo" data-aid="${id}" data-id="${p.id}">✕</button>
+    </div>`).join(""):`<div class="empty" style="grid-column:1/-1">ยังไม่มีรูป — อัปโหลดรูปแรกได้เลย</div>`;
+  });
+}
+async function uploadAlbumPhotos(albumId, files){
+  if(!files.length) return;
+  const prog=$("#g-prog"), bar=$("#g-bar"), txt=$("#g-txt");
+  prog.classList.remove("hide");
+  let done=0, firstData="";
+  for(const f of files){
+    try{
+      const d=await compressImage(f);
+      if(!firstData) firstData=d;
+      await addDoc(collection(db,"galleries",albumId,"photos"),{data:d,by:S.user.uid,createdAt:serverTimestamp()});
+    }catch(_){ toast("บางรูปอัปโหลดไม่สำเร็จ"); }
+    done++; bar.value=Math.round(done/files.length*100);
+    txt.textContent=`อัปโหลดแล้ว ${done}/${files.length} รูป`;
+  }
+  const a=S.galleries.find(x=>x.id===albumId);
+  const upd={photoCount:(a?.photoCount||0)+done};
+  if(a&&!a.cover&&firstData){
+    // ทำ thumbnail ปกขนาดเล็ก
+    upd.cover=await shrinkDataURL(firstData,420);
+  }
+  await updateDoc(doc(db,"galleries",albumId),upd);
+  prog.classList.add("hide"); $("#g-file").value="";
+  toast(`เพิ่ม ${done} รูปแล้ว`);
+}
+function shrinkDataURL(dataURL,maxSide){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{ let{width:w,height:h}=img;
+      const r=maxSide/Math.max(w,h); if(r<1){w=Math.round(w*r);h=Math.round(h*r);}
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(img,0,0,w,h); res(cv.toDataURL("image/jpeg",0.65)); };
+    img.src=dataURL;
+  });
+}
+async function deleteAlbumPhoto(albumId,photoId){
+  if(!confirm("ลบรูปนี้?")) return;
+  await deleteDoc(doc(db,"galleries",albumId,"photos",photoId));
+  const a=S.galleries.find(x=>x.id===albumId);
+  await updateDoc(doc(db,"galleries",albumId),{photoCount:Math.max(0,(a?.photoCount||1)-1)});
+}
+async function deleteAlbum(id){
+  const a=S.galleries.find(x=>x.id===id);
+  if(!confirm(`ลบอัลบั้ม "${a.title}" และรูปทั้งหมด (${a.photoCount||0} รูป) ถาวร?`)) return;
+  const s=await getDocs(collection(db,"galleries",id,"photos"));
+  for(const d of s.docs) await deleteDoc(d.ref);
+  await deleteDoc(doc(db,"galleries",id));
+  S.openAlbum=null; renderTab(true); toast("ลบอัลบั้มแล้ว");
+}
+
+/* ================================================================
+   EVENT DELEGATION + BOOT
+   ================================================================ */
+document.addEventListener("click", e=>{
+  const el=e.target.closest("[data-act]"); if(!el) return;
+  const act=el.dataset.act, id=el.dataset.id;
+  switch(act){
+    case "tab": S.tab=el.dataset.t; renderShell(); break;
+    case "logout": if(confirm("ออกจากระบบ?")) signOut(auth); break;
+    case "edit-name": {
+      const nm=prompt("ชื่อที่แสดง:",S.profile.displayName);
+      if(nm&&nm.trim()){ updateDoc(doc(db,"users",S.user.uid),{displayName:nm.trim()}); S.profile.displayName=nm.trim(); renderShell(); }
+      break; }
+    case "close": closeModal(); break;
+    case "fab": break;
+    case "new-task": openTaskForm(null); break;
+    case "open-task": openTaskDetail(id); break;
+    case "edit-task": { const t=S.tasks.find(x=>x.id===id); closeModal(); openTaskForm(t); break; }
+    case "del-task": deleteTask(id); break;
+    case "add-img": $("#d-file").click(); break;
+    case "del-img": deleteTaskImg(el.dataset.tid,id); break;
+    case "form-img-del": formImgs.splice(Number(el.dataset.i),1);
+      $("#t-thumbs").innerHTML=formImgs.map((d,i)=>`<span class="thumb-wrap"><img src="${d}"><button type="button" class="del" data-act="form-img-del" data-i="${i}">✕</button></span>`).join(""); break;
+    case "task-lightbox": S.gPhotos=S.taskImgs; openLightbox(Number(el.dataset.i)); break;
+    case "calmode": S.calMode=el.dataset.m; renderSched(); break;
+    case "cal-nav": {
+      const d=Number(el.dataset.d);
+      if(S.calMode==="week") S.calDate.setDate(S.calDate.getDate()+7*d);
+      else S.calDate.setMonth(S.calDate.getMonth()+d);
+      renderSchedBody(); break; }
+    case "cal-today": S.calDate=new Date(); renderSchedBody(); break;
+    case "cal-day": { const ds=el.dataset.d;
+      const evs=filteredTasks().filter(t=>t.date===ds);
+      if(evs.length===1) openTaskDetail(evs[0].id);
+      else openModal(`<h3>📅 ${fmtDate(ds)}<button class="x" data-act="close">✕</button></h3>
+        <div style="margin-top:12px">${evs.length?evs.map(taskCard).join("")
+          :`<div class="empty" style="padding:22px">ไม่มีงานในวันนี้</div>`}</div>
+        <button class="btn btn-red" style="width:100%;margin-top:8px" data-act="new-task-day" data-d="${ds}">＋ สร้างงานวันที่นี้</button>`);
+      break; }
+    case "new-task-day": { const d=el.dataset.d; openTaskForm(null); $("#t-date").value=d; break; }
+    case "export": openExport(); break;
+    case "do-export": doExport(); break;
+    case "new-album": openAlbumForm(); break;
+    case "open-album": S.openAlbum=id; renderAlbumAdmin(id); break;
+    case "back-gal": S.openAlbum=null; if(S._albSub){S._albSub();S._albSub=null;} renderGalAdmin(); break;
+    case "copy-link": navigator.clipboard.writeText(shareLink(id)).then(()=>toast("คัดลอกลิงก์แล้ว — ส่งให้ใครก็เปิดดูได้"))
+      .catch(()=>prompt("คัดลอกลิงก์นี้:",shareLink(id))); break;
+    case "del-photo": deleteAlbumPhoto(el.dataset.aid,id); break;
+    case "del-album": deleteAlbum(id); break;
+    case "pub-open": location.search="?album="+id; break;
+    case "lightbox": openLightbox(Number(el.dataset.i)); break;
+    case "lb-close": $("#lb").remove(); break;
+    case "lb-nav": {
+      const lb=$("#lb"); let i=Number(lb.dataset.i)+Number(el.dataset.d);
+      if(i<0) i=S.gPhotos.length-1; if(i>=S.gPhotos.length) i=0;
+      lb.remove(); openLightbox(i); break; }
+  }
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ const lb=$("#lb"); if(lb){lb.remove();return;} closeModal(); }});
+
+if(PUBLIC_GALLERY){
+  bootPublic();
+}else{
+  onAuthStateChanged(auth, async user=>{
+    S.unsub.forEach(u=>u()); S.unsub=[];
+    if(!user){ S.user=null; S.profile=null; renderLogin(); return; }
+    S.user=user;
+    try{ S.profile=await ensureProfile(user); }
+    catch(ex){ console.error(ex); renderLogin("โหลดข้อมูลผู้ใช้ไม่สำเร็จ — ตรวจสอบ Firestore Rules"); return; }
+    S.profile.color=S.profile.color||userColor(user.uid);
+    subscribeCore(); renderShell();
+  });
+}
+</script>
+</body>
+</html>
