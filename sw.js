@@ -1,10 +1,10 @@
-/* TeamWork Service Worker
+/* NEVER Service Worker
    - เปิดใช้การติดตั้งเป็นแอป (PWA)
    - หน้าแอปใช้ network-first → อัปเดตเวอร์ชันใหม่ได้ทันทีที่ออนไลน์
    - ไอคอน/manifest ใช้ cache-first
    - ไม่ยุ่งกับ request ของ Firebase/ฟอนต์ (ปล่อยผ่านปกติ) */
 
-const CACHE = "teamwork-v1";
+const CACHE = "never-v2";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./icon-maskable.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

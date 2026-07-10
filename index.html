@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>TeamWork — ตารางงานทีม</title>
+<title>NEVER — ตารางงานทีม</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#5E8F33">
 <link rel="icon" type="image/png" href="./icon-192.png">
@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="TeamWork">
+<meta name="apple-mobile-web-app-title" content="NEVER">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ const FIREBASE_CONFIG = {
 };
 // Apps Script Web App URL สำหรับแจ้งเตือน LINE (เว้นว่าง "" = ปิดการแจ้งเตือน)
 const LINE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyp7g1OcHUmKhv6BUEpuhRQqzqVGFD9oRi6IGLKHYl_9iTpRN9dGxqZezX2231SwFpC/exec";
-const APP_NAME = "Never Coffee";
+const APP_NAME = "NEVER";
 /* ================================================================ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -296,7 +296,7 @@ const PUBLIC_GALLERY = publicParams.has("gallery") || !!PUBLIC_ALBUM;
 let db, auth;
 if(FIREBASE_CONFIG.apiKey.includes("PASTE")){
   $("#app").innerHTML=`<div class="login-wrap"><div class="card login">
-    <img class="logo-lg" src="./icon-192.png" alt="TeamWork"><h1>ยังไม่ได้ตั้งค่า Firebase</h1>
+    <img class="logo-lg" src="./icon-192.png" alt="NEVER"><h1>ยังไม่ได้ตั้งค่า Firebase</h1>
     <p>เปิดไฟล์ index.html แล้ววาง FIREBASE_CONFIG ตามขั้นตอนใน SETUP_GUIDE.md ก่อนใช้งานครับ</p></div></div>`;
   throw new Error("no config");
 }
@@ -355,7 +355,7 @@ function openLightbox(i){
    ================================================================ */
 function renderLogin(err){
   $("#app").innerHTML=`<div class="login-wrap"><div class="card login">
-    <img class="logo-lg" src="./icon-192.png" alt="TeamWork">
+    <img class="logo-lg" src="./icon-192.png" alt="NEVER">
     <h1>${APP_NAME}</h1><p>ระบบจัดตารางงานทีม · เข้าสู่ระบบเพื่อใช้งาน</p>
     <form id="login-f">
       <label>Username</label><input id="l-user" autocomplete="username" required autocapitalize="none">
