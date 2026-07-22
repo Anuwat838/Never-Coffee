@@ -289,7 +289,7 @@ const PRIO={urgent:"ด่วน",normal:"ปกติ"};
 const S={
   user:null, profile:null, users:{}, tasks:[], chat:[],
   tab:"sched", calMode:"month", calDate:new Date(),
-  f:{status:"",prio:"",asg:"",q:""},
+  f:{status:"",prio:"",asg:"",q:""}, listAutoStatus:false,
   unsub:[], detailUnsub:[], comments:[], history:[], taskImgs:[],
   galleries:[], gPhotos:[], openAlbum:null,
   chatReady:false
@@ -488,7 +488,7 @@ function renderSched(){
     </div>
     <div id="sched-body"></div>`;
   ["status","prio","asg"].forEach(k=>{
-    $("#f-"+k).addEventListener("change",e=>{ S.f[k]=e.target.value; renderSchedBody(); });
+    $("#f-"+k).addEventListener("change",e=>{ S.f[k]=e.target.value; if(k==="status") S.listAutoStatus=false; renderSchedBody(); });
   });
   renderSchedBody();
 }
@@ -1028,7 +1028,13 @@ document.addEventListener("click", e=>{
     case "form-img-del": formImgs.splice(Number(el.dataset.i),1);
       $("#t-thumbs").innerHTML=formImgs.map((d,i)=>`<span class="thumb-wrap"><img src="${d}"><button type="button" class="del" data-act="form-img-del" data-i="${i}">✕</button></span>`).join(""); break;
     case "task-lightbox": S.gPhotos=S.taskImgs; openLightbox(Number(el.dataset.i)); break;
-    case "calmode": S.calMode=el.dataset.m; renderSched(); break;
+    case "calmode": {
+      const prev=S.calMode, next=el.dataset.m;
+      // เข้ามุมมองลิสต์: ถ้ายังไม่ได้กรองสถานะเอง → ตั้ง default เป็น "รอทำ"
+      if(next==="list" && S.f.status===""){ S.f.status="todo"; S.listAutoStatus=true; }
+      // ออกจากลิสต์ไปปฏิทิน: ถ้า "รอทำ" มาจาก default อัตโนมัติ → คืนเป็นทั้งหมด
+      if(prev==="list" && next!=="list" && S.listAutoStatus){ S.f.status=""; S.listAutoStatus=false; }
+      S.calMode=next; renderSched(); break; }
     case "cal-nav": {
       const d=Number(el.dataset.d);
       if(S.calMode==="week") S.calDate.setDate(S.calDate.getDate()+7*d);
